@@ -1,0 +1,21 @@
+name: Notify Slack on PR Reviewers Assigned
+
+on:
+  pull_request:
+    types:
+      - review_requested
+
+jobs:
+  notify_reviewers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract reviewer usernames
+        id: reviewers
+        run: echo "REVIEWERS=$(echo '${{ toJson(github.event.pull_request.requested_reviewers) }}' | jq -r '.[].login' | tr '\n' ' ')" >> $GITHUB_ENV
+
+      - name: Send Slack notification
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_MESSAGE: "👀 Review requested on PR *#${{ github.event.pull_request.number }}* by ${{ github.actor }}\n🔗 <${{ github.event.pull_request.html_url }}|View PR>\n👥 *Reviewers:* ${{ env.REVIEWERS }}"
+          SLACK_COLOR: "#FFA500"
