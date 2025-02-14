@@ -5,19 +5,45 @@ on:
     types:
       - review_requested
 
-# Dummy comment
-
 jobs:
   notify_reviewers:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the repository
+        uses: actions/checkout@v2
+
+      - name: Install jq and Node.js (for mapping)
+        run: |
+          sudo apt-get install jq
+          curl -sL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+
       - name: Extract reviewer usernames
         id: reviewers
-        run: echo "REVIEWERS=$(echo '${{ toJson(github.event.pull_request.requested_reviewers) }}' | jq -r '.[].login' | tr '\n' ' ')" >> $GITHUB_ENV
+        run: |
+          echo "REVIEWERS=$(echo '${{ toJson(github.event.pull_request.requested_reviewers) }}' | jq -r '.[].login' | tr '\n' ' ')" >> $GITHUB_ENV
+
+      - name: Create Slack mentions from GitHub usernames
+        id: format_mentions
+        run: |
+          REVIEWER_MENTIONS=""
+          for reviewer in ${{ env.REVIEWERS }}; do
+            SLACK_USER=$(node -e "
+              const mapping = require('./github-to-slack-mapping.json');
+              const githubUser = '$reviewer';
+              const slackUser = mapping[githubUser];
+              if (slackUser) {
+                console.log(\`<@\${slackUser}>\`);
+              } else {
+                console.log(githubUser);
+              }")
+            REVIEWER_MENTIONS="${REVIEWER_MENTIONS}${SLACK_USER} "
+          done
+          echo "REVIEWER_MENTIONS=$REVIEWER_MENTIONS" >> $GITHUB_ENV
 
       - name: Send Slack notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_MESSAGE: "👀 Review requested on PR *#${{ github.event.pull_request.number }}* by ${{ github.actor }}\n🔗 <${{ github.event.pull_request.html_url }}|View PR>\n👥 *Reviewers:* ${{ env.REVIEWERS }}"
+          SLACK_MESSAGE: "👀 Review requested on PR *#${{ github.event.pull_request.number }}* by ${{ github.actor }}\n🔗 <${{ github.event.pull_request.html_url }}|View PR>\n👥 Reviewers: ${{ env.REVIEWER_MENTIONS }}"
           SLACK_COLOR: "#FFA500"
