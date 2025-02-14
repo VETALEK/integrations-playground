@@ -46,7 +46,7 @@ jobs:
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
           SLACK_MESSAGE: |
-            🚀 New PR in *${{ github.repository }}*!
+            *🚀 New PR in ${{ github.repository }}!*
 
             🏷️ Name: *${{ github.event.pull_request.title }}*
             🧑‍💻 Author: ${{ github.actor }}
@@ -54,8 +54,8 @@ jobs:
 
             *META:*
 
-            Lines: ➕ ${{ env.INSERTIONS }} | ➖ ${{ env.DELETIONS }}
-            Files 📝 ${{ env.FILES_MODIFIED }} | ➕ ${{ env.FILES_ADDED }} | ➖ ${{ env.FILES_REMOVED }}
+            Lines:   ${{ env.INSERTIONS }}➕   ${{ env.DELETIONS }}➖
+            Files   ${{ env.FILES_MODIFIED }}📝   ${{ env.FILES_ADDED }}➕   ${{ env.FILES_REMOVED }}➖
 
-            🔗 <${{ github.event.pull_request.html_url }}|View PR>
+            🔗 <${{ github.event.pull_request.html_url }}|VIEW PR>
           SLACK_COLOR: "#36a64f"
