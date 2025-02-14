@@ -1,4 +1,4 @@
-name: PR review Slack notification
+name: Notify Slack on PR Reviewers Assigned
 
 on:
   pull_request:
@@ -23,6 +23,24 @@ jobs:
           done
           echo "REVIEWER_LIST=$REVIEWER_LIST" >> $GITHUB_ENV
 
+      - name: Get PR changes
+        id: pr_changes
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          CHANGES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/files)
+          INSERTIONS=$(echo "$CHANGES" | jq '[.[] | .additions] | add')
+          DELETIONS=$(echo "$CHANGES" | jq '[.[] | .deletions] | add')
+          FILES_MODIFIED=$(echo "$CHANGES" | jq '[.[] | select(.status == "modified")] | length')
+          FILES_ADDED=$(echo "$CHANGES" | jq '[.[] | select(.status == "added")] | length')
+          FILES_REMOVED=$(echo "$CHANGES" | jq '[.[] | select(.status == "removed")] | length')
+
+          echo "INSERTIONS=$INSERTIONS" >> $GITHUB_ENV
+          echo "DELETIONS=$DELETIONS" >> $GITHUB_ENV
+          echo "FILES_MODIFIED=$FILES_MODIFIED" >> $GITHUB_ENV
+          echo "FILES_ADDED=$FILES_ADDED" >> $GITHUB_ENV
+          echo "FILES_REMOVED=$FILES_REMOVED" >> $GITHUB_ENV
+
       - name: Send Slack notification
         uses: rtCamp/action-slack-notify@v2
         env:
@@ -32,5 +50,10 @@ jobs:
             🏷️ Name: *${{ github.event.pull_request.title }}*
             🧑‍💻 Author: ${{ github.actor }}
             👥 Reviewers: ${{ env.REVIEWER_LIST }}
+            🔢 Insertions: ${{ env.INSERTIONS }}
+            ➖ Deletions: ${{ env.DELETIONS }}
+            📂 Files modified: ${{ env.FILES_MODIFIED }}
+            ➕ Files added: ${{ env.FILES_ADDED }}
+            ➖ Files removed: ${{ env.FILES_REMOVED }}
             🔗 <${{ github.event.pull_request.html_url }}|View PR>
           SLACK_COLOR: "#36a64f"
