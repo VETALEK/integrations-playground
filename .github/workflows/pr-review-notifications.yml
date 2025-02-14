@@ -11,11 +11,53 @@ jobs:
     steps:
       - name: Extract reviewer usernames
         id: reviewers
-        run: echo "REVIEWERS=$(echo '${{ toJson(github.event.pull_request.requested_reviewers) }}' | jq -r '.[].login' | tr '\n' ' ')" >> $GITHUB_ENV
+        run: |
+          echo "REVIEWERS=$(echo '${{ toJson(github.event.pull_request.requested_reviewers) }}' | jq -r '.[].login' | tr '\n' ' ')" >> $GITHUB_ENV
+
+      - name: Format reviewer list
+        id: format_reviewers
+        run: |
+          REVIEWER_LIST=""
+          for reviewer in ${{ env.REVIEWERS }}; do
+            REVIEWER_LIST="${REVIEWER_LIST}${reviewer} "
+          done
+          echo "REVIEWER_LIST=$REVIEWER_LIST" >> $GITHUB_ENV
+
+      - name: Get PR changes
+        id: pr_changes
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          CHANGES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          https://api.github.com/repos/${{ github.repository }}/pulls/${PR_NUMBER}/files)
+          INSERTIONS=$(echo "$CHANGES" | jq '[.[] | .additions] | add')
+          DELETIONS=$(echo "$CHANGES" | jq '[.[] | .deletions] | add')
+          FILES_MODIFIED=$(echo "$CHANGES" | jq '[.[] | select(.status == "modified")] | length')
+          FILES_ADDED=$(echo "$CHANGES" | jq '[.[] | select(.status == "added")] | length')
+          FILES_REMOVED=$(echo "$CHANGES" | jq '[.[] | select(.status == "removed")] | length')
+          TOTAL_FILES_CHANGED=$((FILES_MODIFIED + FILES_ADDED + FILES_REMOVED))
+
+          echo "INSERTIONS=$INSERTIONS" >> $GITHUB_ENV
+          echo "DELETIONS=$DELETIONS" >> $GITHUB_ENV
+          echo "FILES_MODIFIED=$FILES_MODIFIED" >> $GITHUB_ENV
+          echo "FILES_ADDED=$FILES_ADDED" >> $GITHUB_ENV
+          echo "FILES_REMOVED=$FILES_REMOVED" >> $GITHUB_ENV
+          echo "TOTAL_FILES_CHANGED=$TOTAL_FILES_CHANGED" >> $GITHUB_ENV
 
       - name: Send Slack notification
         uses: rtCamp/action-slack-notify@v2
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
-          SLACK_MESSAGE: "👀 Review requested on PR *#${{ github.event.pull_request.number }}* by ${{ github.actor }}\n🔗 <${{ github.event.pull_request.html_url }}|View PR>\n👥 *Reviewers:* ${{ env.REVIEWERS }}"
-          SLACK_COLOR: "#FFA500"
+          SLACK_MESSAGE: |
+            *🚀 New PR in ${{ github.repository }}!*
+
+            🏷️ Name: *${{ github.event.pull_request.title }}*
+            🧑‍💻 Author: ${{ github.actor }}
+            👥 Reviewers: ${{ env.REVIEWER_LIST }}
+
+            *META:*
+
+            Lines:   ${{ env.INSERTIONS }}➕   ${{ env.DELETIONS }}➖
+            Files(${{ env.TOTAL_FILES_CHANGED }}):   ${{ env.FILES_MODIFIED }}📝   ${{ env.FILES_ADDED }}➕   ${{ env.FILES_REMOVED }}➖
+
+            🔗 <${{ github.event.pull_request.html_url }}|VIEW PR>
+          SLACK_COLOR: "#36a64f"
