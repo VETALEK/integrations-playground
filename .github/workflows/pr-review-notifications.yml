@@ -5,6 +5,8 @@ on:
     types:
       - review_requested
 
+# Dummy comment
+
 jobs:
   notify_reviewers:
     runs-on: ubuntu-latest
