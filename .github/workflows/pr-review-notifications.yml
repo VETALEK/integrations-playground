@@ -34,12 +34,14 @@ jobs:
           FILES_MODIFIED=$(echo "$CHANGES" | jq '[.[] | select(.status == "modified")] | length')
           FILES_ADDED=$(echo "$CHANGES" | jq '[.[] | select(.status == "added")] | length')
           FILES_REMOVED=$(echo "$CHANGES" | jq '[.[] | select(.status == "removed")] | length')
+          TOTAL_FILES_CHANGED=$((FILES_MODIFIED + FILES_ADDED + FILES_REMOVED))
 
           echo "INSERTIONS=$INSERTIONS" >> $GITHUB_ENV
           echo "DELETIONS=$DELETIONS" >> $GITHUB_ENV
           echo "FILES_MODIFIED=$FILES_MODIFIED" >> $GITHUB_ENV
           echo "FILES_ADDED=$FILES_ADDED" >> $GITHUB_ENV
           echo "FILES_REMOVED=$FILES_REMOVED" >> $GITHUB_ENV
+          echo "TOTAL_FILES_CHANGED=$TOTAL_FILES_CHANGED" >> $GITHUB_ENV
 
       - name: Send Slack notification
         uses: rtCamp/action-slack-notify@v2
@@ -55,7 +57,7 @@ jobs:
             *META:*
 
             Lines:   ${{ env.INSERTIONS }}➕   ${{ env.DELETIONS }}➖
-            Files   ${{ env.FILES_MODIFIED }}📝   ${{ env.FILES_ADDED }}➕   ${{ env.FILES_REMOVED }}➖
+            Files(${{ env.TOTAL_FILES_CHANGED }}):   ${{ env.FILES_MODIFIED }}📝   ${{ env.FILES_ADDED }}➕   ${{ env.FILES_REMOVED }}➖
 
             🔗 <${{ github.event.pull_request.html_url }}|VIEW PR>
           SLACK_COLOR: "#36a64f"
